@@ -4,7 +4,7 @@ from doctor.crud.crud_dummy import dummydoctor
 from doctor.crud.crud_utility import user
 from doctor.models.usermodel import User
 from doctor.schemas.user import UserDummyApi, UserDummyCreate, UserDummyUpdate
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 from doctor.helper import csv_reader
@@ -72,13 +72,16 @@ async def remove_dummy(*, db: Session = Depends(deps.get_db), id: str, current_u
 
 
 @router.post('/csv-to-doctors')
-async def csv_to_doctor(*, db: Session = Depends(deps.get_db), file: UploadFile = File(...), current_user: User = Depends(deps.get_active_superusr_or_admin)):
+async def csv_to_doctor(*, background_tasks : BackgroundTasks, db: Session = Depends(deps.get_db), file: UploadFile = File(...), current_user: User = Depends(deps.get_active_superusr_or_admin)):
 
     contents = file.file.read()
 
     data = await csv_reader.read_csv_file(contents=contents, schema=UserDummyCreate)
 
-    dummies = await dummydoctor.create_dummydoctors(db=db, dummy_list=data,user_id=current_user.id)
+    # dummies = await dummydoctor.create_dummydoctors(db=db, dummy_list=data,user_id=current_user.id)
 
-    return {'success': 'Doctors creation from csv file succeed!'}
+    # dummmy doctors will be created in the  background
+    background_tasks.add_task(dummydoctor.create_dummydoctors, db=db, dummy_list=data, user_id=current_user.id)
+
+    return {'success': 'Doctors creation from csv file has been added in the task!'}
     

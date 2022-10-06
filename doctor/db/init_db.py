@@ -24,7 +24,7 @@ async def init_db(db: Session) -> None:
 
 
 
-    users = await user.get_by_mobile(db, mobile=settings.FIRST_USER_MOBILE)
+    users = await user.get_by_mobile(db, mobile=settings.FIRST_SUPERUSER_MOBILE)
     if not users:
         user_in = UserCreateBase(
             full_name=settings.FIRST_SUPERUSER,

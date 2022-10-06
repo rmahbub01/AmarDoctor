@@ -8,7 +8,7 @@ from doctor.models.usermodel import User
 from doctor.schemas.token import Token, TokenPayload
 from doctor.schemas.user import (UserApi, UserBase, UserCreateBase,
                                  UserUpdateBase)
-from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, BackgroundTasks
 from fastapi.encoders import jsonable_encoder
 from pydantic.networks import EmailStr
 from sqlalchemy.orm import Session
@@ -39,6 +39,7 @@ async def create_user(
     *,
     db: Session = Depends(deps.get_db),
     user_in: UserCreateBase,
+    background_tasks : BackgroundTasks,
     current_user: User = Depends(deps.get_current_active_superuser),
 ) -> Any:
     """
@@ -53,9 +54,8 @@ async def create_user(
     users = await user.create(db, obj_in=user_in)
 
     if settings.EMAILS_ENABLED and user_in.email:
-        await send_new_account_email(
-            email_to=user_in.email, username=user_in.email, password=user_in.password
-        )
+        #email will be sent in the background
+        background_tasks.add_task(send_new_account_email, email_to=user_in.email, username=user_in.email, password=user_in.password)
 
     return users
 
@@ -100,6 +100,7 @@ async def read_user_me(
 @router.post("/open", response_model=UserApi)
 async def create_user_open(
     *,
+    background_tasks : BackgroundTasks,
     db: Session = Depends(deps.get_db),
     full_name: str = Body(...),
     gender: str = Body(...),
@@ -123,9 +124,12 @@ async def create_user_open(
         )
     user_in = UserCreateBase(
         full_name=full_name,gender=gender, mobile=mobile, password=password, email=email)
+
     users = await user.create(db, obj_in=user_in)
     if settings.EMAILS_ENABLED and user_in.email:
-        await send_new_account_email(email_to=user_in.email, username=user_in.mobile, password=user_in.password)
+        #email will be sent in the background
+        background_tasks.add_task(send_new_account_email, email_to=user_in.email, username=user_in.mobile, password=user_in.password)
+
     return users
 
 

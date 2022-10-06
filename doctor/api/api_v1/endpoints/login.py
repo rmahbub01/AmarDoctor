@@ -12,7 +12,7 @@ from doctor.schemas.user import UserBase, UserCreateBase, UserUpdateBase, UserCh
 from doctor.schemas.msg import Msg
 from doctor.schemas.token import Token, TokenPayload
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, status, BackgroundTasks
 from starlette.responses import RedirectResponse, Response, JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.security.base import SecurityBase
@@ -66,7 +66,7 @@ async def logout(response:Response):
 
 
 @router.post("/password-recovery/{email}", response_model=Msg)
-async def recover_password(request:Request, email: str, db: Session = Depends(deps.get_db)) -> Any:
+async def recover_password(request:Request, email: str, background_tasks: BackgroundTasks, db: Session = Depends(deps.get_db)) -> Any:
     """
     Password Recovery
     """
@@ -77,8 +77,11 @@ async def recover_password(request:Request, email: str, db: Session = Depends(de
             status_code=404,
             detail="The user with this username does not exist in the system.",
         )
+
     password_reset_token = await generate_password_reset_token(email=email)
-    await send_reset_password_email(email_to=users.email, email=email, token=password_reset_token)
+    #email will be sent in the background
+    background_tasks.add_task(send_reset_password_email, email_to=users.email, email=email, token=password_reset_token)
+
     return {"msg": "Password recovery email sent"}
 
 
